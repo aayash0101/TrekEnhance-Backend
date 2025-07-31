@@ -5,15 +5,11 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 
-const connectDB = require('./Config/db');
 const userRoutes = require('./Route/UserRoute');
 const trekRoutes = require('./Route/TrekRoute');
 const journalRoutes = require('./Route/journalRoutes');
 
 const app = express();
-
-// Connect to DB
-connectDB();
 
 // Middleware
 app.use(cors({
