@@ -1,8 +1,38 @@
+const multer = require('multer');
+const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../Model/UserModel');
 const Journal = require('../Model/JournalModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// Multer storage configuration for profile pictures
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // folder to save uploads
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname)); // unique filename
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Upload profile picture handler
+exports.uploadProfilePicture = (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  // Build image URL or relative path
+  const imageUrl = `/uploads/${req.file.filename}`;
+
+  res.status(200).json({
+    message: 'Image uploaded successfully',
+    data: imageUrl,
+  });
+};
+
 
 // Get all users (without passwords)
 exports.getAllUsers = async (req, res) => {
@@ -19,9 +49,8 @@ exports.getAllUsers = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ message: 'Invalid user ID' });
-    }
 
     const user = await User.findById(id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -37,19 +66,19 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ message: 'Invalid user ID' });
-    }
+
+    // Build update fields dynamically
+    const updateFields = {};
+    if (req.body.username) updateFields.username = req.body.username;
+    if (req.body.bio) updateFields.bio = req.body.bio;
+    if (req.body.location) updateFields.location = req.body.location;
+    if (req.body.profileImageUrl) updateFields.profileImageUrl = req.body.profileImageUrl;
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      {
-        $set: {
-          username: req.body.username,
-          bio: req.body.bio,
-          location: req.body.location,
-        },
-      },
+      { $set: updateFields },
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -65,22 +94,24 @@ exports.updateProfile = async (req, res) => {
 // Signup new user
 exports.signup = async (req, res) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email, profileImageUrl } = req.body;
 
-    if (!username || !password || !email) {
+    if (!username || !password || !email)
       return res.status(400).json({ message: 'All fields are required' });
-    }
 
-    // Check if username or email already exist
-    if (await User.findOne({ username })) {
+    if (await User.findOne({ username }))
       return res.status(400).json({ message: 'Username already taken' });
-    }
-    if (await User.findOne({ email })) {
+
+    if (await User.findOne({ email }))
       return res.status(400).json({ message: 'Email already in use' });
-    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password: hashedPassword, email });
+    const newUser = new User({
+      username,
+      password: hashedPassword,
+      email,
+      profileImageUrl: profileImageUrl || ''
+    });
     await newUser.save();
 
     res.status(201).json({ message: 'User registered successfully' });
@@ -96,14 +127,14 @@ exports.login = async (req, res) => {
     const { username, password } = req.body;
 
     const user = await User.findOne({ username });
-    if (!user) {
+    if (!user)
       return res.status(400).json({ message: 'Invalid credentials' });
-    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res.status(400).json({ message: 'Invalid credentials' });
-    }
+
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET not set');
 
     const token = jwt.sign(
       { userId: user._id },
@@ -117,6 +148,7 @@ exports.login = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        profileImageUrl: user.profileImageUrl
       },
     });
   } catch (err) {
@@ -129,9 +161,8 @@ exports.login = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ message: 'Invalid user ID' });
-    }
 
     const deletedUser = await User.findByIdAndDelete(id);
     if (!deletedUser) return res.status(404).json({ message: 'User not found' });

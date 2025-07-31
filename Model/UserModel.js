@@ -6,10 +6,9 @@ const userSchema = new mongoose.Schema({
   email: { type: String },
   bio: { type: String, default: '' },
   location: { type: String, default: '' },
-
+  profileImageUrl: { type: String, default: '' },
   savedJournals: [{ type: mongoose.Schema.Types.ObjectId, ref: 'JournalEntry' }],
   favoriteJournals: [{ type: mongoose.Schema.Types.ObjectId, ref: 'JournalEntry' }],
-
 });
 
 module.exports = mongoose.model('User', userSchema);
